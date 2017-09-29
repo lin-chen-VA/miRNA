@@ -32,20 +32,20 @@ def getTable(l, startIndex, col1, col2):
             miRNA.append([ele[col1], ele[col2]]);
     return miRNA;
 
-def processMiRNATable(miRNATable, outputFile):
+def processMiRNATable(miRNATable, expressionTable, outputFile):
     ''' process miRNA table
     Args:
         miRNATable (list), each element contains transcript ID and Fold-Change
+        expressionTable (dict), key is gene expression, value is RefSeq
         outputFile (string), name of output file
     '''
     num = len(miRNATable);
     index = 0;
     with open(outputFile, 'wb') as f:
-        line = "Transcript ID, Fold Change, Target Gene, RefSeq, Gene Symbol, TargetScan\n";
+        line = "Transcript ID, Fold Change, Target Gene, RefSeq, TargetScan\n";
         f.write(line);
         for id, change in miRNATable:
-            print id, change
-            table = parseMiRBase('http://www.mirbase.org/cgi-bin/mirna_entry.pl?acc='+id);
+            table = parseMiRBase('http://www.mirbase.org/cgi-bin/mirna_entry.pl?acc='+id, expressionTable);
             for row in table:
                 line = id+','+change;
                 for ele in row:
@@ -55,10 +55,11 @@ def processMiRNATable(miRNATable, outputFile):
             index += 1;
             print 'Have done', '%10.1f%%'%(float(index)/num*100), id
 
-def parseMiRBase(url):
+def parseMiRBase(url, expressionTable):
     ''' parse the webpage at mirbase.org to get the target url at targetscan.org
     Args:
         url (string), url at mirbase.org
+        expressionTable (dict), key is gene expression, value is RefSeq
     Return:
         table (list), a table of target genes, representative transcript, and Gene Symbol
     '''
@@ -67,22 +68,18 @@ def parseMiRBase(url):
     soup = BeautifulSoup(response, 'html.parser');
     for r in soup.find_all('li'):
         if re.search(r'TARGETSCAN-VERT', str(r.contents[0]), re.M|re.I):
-            #print r
             for target in r.find_all('a'):
-                #print "Target: ", target, target.get('href')
                 l = matching(target.get('href'), expressionTable);
-                print "Matching: ", l
+                for index, row in enumerate(l):
+                    l[index].append(target.text);
                 table += l;
-    print table
-    for index, row in enumerate(table):
-        table[index].append(target.text);
     return table;
 
 def matching(url, expressionTable):
     ''' get all matching representative transcripts and target genes
     Args:
         url (string), target url at targetscan.org
-        expressionTable (dict), expression table
+        expressionTable (dict), key is gene expression, value is RefSeq
     Return:
         l (list), each element contains target gene, matching representative transcript, and Gene Symbol
     '''
@@ -95,8 +92,8 @@ def matching(url, expressionTable):
         if td.find('a'):
             s = td.find('a').text;
             if expressionTable.has_key(s.strip()):
-                print 'Find Target: ', s
-                l.append([tds[index-1].find('a').text, tds[index].find('a').text, expressionTable[s.strip()]]);
+                l.append([tds[index].find('a').text, expressionTable[s.strip()]]);
+                #l.append([tds[index-1].find('a').text, tds[index].find('a').text, expressionTable[s.strip()]]);
     return l;
 
 def list2dict(expressionTable):
@@ -113,20 +110,17 @@ def list2dict(expressionTable):
         #else:
             #l = [];
             #l.append(row[0].strip());
-        d[row[1].strip()] = row[0].strip();
+        d[row[0].strip()] = row[1].strip();
     return d;
 
 if __name__ == '__main__':
     l = read(sys.argv[1]);
     miRNATable = getTable(l, 1, 3, 4);
-    #print miRNATable;
     del l;
     e = read(sys.argv[2]);
     expressionTable = getTable(e, 1, 3, 4);
-    #print len(expressionTable);
     del e;
     expressionTable = list2dict(expressionTable);
-    #print len(expressionTable);
 
-    processMiRNATable(miRNATable, 'output.csv');
+    processMiRNATable(miRNATable, expressionTable, 'output.csv');
 
