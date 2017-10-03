@@ -118,9 +118,8 @@ if __name__ == '__main__':
     miRNATable = getTable(l, 1, 3, 4);
     del l;
     e = read(sys.argv[2]);
-    expressionTable = getTable(e, 1, 3, 4);
+    expressionTable = getTable(e, 1, 3, 6);
     del e;
     expressionTable = list2dict(expressionTable);
 
     processMiRNATable(miRNATable, expressionTable, 'output.csv');
-
